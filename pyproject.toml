@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "promptcat"
+version = "0.1.0"
+description = "An offline, deterministic CLI tool that transforms messy user ideas and large pasted text into cleaner, more structured, higher-context AI prompts."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12.0",
+    "questionary>=2.0.0",
+    "rich>=13.7.0",
+    "pyperclip>=1.8.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+promptcat = "promptcat.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["promptcat*"]
