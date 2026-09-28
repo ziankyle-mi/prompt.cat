@@ -19,6 +19,15 @@ def test_cli_basic_improve(tmp_path: Path):
     assert "[OK] Text cleaned" in result.output
     assert "<role>" in result.output
     assert "<task>" in result.output
+    assert "tokens" in result.output
+
+
+def test_cli_markdown_format():
+    result = runner.invoke(app, ["build a rest api with fastapi", "--format", "markdown", "--no-copy"])
+    assert result.exit_code == 0
+    assert "# Role" in result.output
+    assert "## Task" in result.output
+    assert "<role>" not in result.output
 
 
 def test_cli_clean_only():
@@ -53,6 +62,31 @@ def test_cli_file_input_and_output(tmp_path: Path):
     content = out_file.read_text(encoding="utf-8")
     assert "<role>" in content
     assert "FastAPI" in content
+
+
+def test_cli_history_commands():
+    # Clear history first
+    runner.invoke(app, ["--clear-history"])
+
+    # Generate a prompt to save into history
+    gen_res = runner.invoke(app, ["build a simple counter app in react", "--no-copy"])
+    assert gen_res.exit_code == 0
+
+    # List history via 'promptcat history'
+    result = runner.invoke(app, ["history"])
+    assert result.exit_code == 0
+    assert "Recent Prompt History" in result.output
+    assert "react" in result.output.lower()
+
+    # Get last history
+    last_res = runner.invoke(app, ["--last", "--no-copy"])
+    assert last_res.exit_code == 0
+    assert "<role>" in last_res.output
+
+    # Clear history
+    clear_res = runner.invoke(app, ["--clear-history"])
+    assert clear_res.exit_code == 0
+    assert "Cleared" in clear_res.output
 
 
 def test_cli_invalid_mode():

@@ -2,7 +2,7 @@
 
 import pytest
 from promptcat.compiler import PromptCompiler, compile_prompt
-from promptcat.models import PromptMode, PromptRequest
+from promptcat.models import PromptFormat, PromptMode, PromptRequest
 
 
 class TestCompiler:
@@ -28,6 +28,23 @@ class TestCompiler:
         assert "Senior Software Engineer" in compiled.prompt_text
         assert "Authentication" in compiled.detected_domains
         assert "React" in compiled.stack
+        assert compiled.estimated_tokens > 50
+
+    def test_markdown_format(self, compiler):
+        req = PromptRequest(
+            text="Add OAuth2 Google login button to user settings",
+            mode=PromptMode.FEATURE,
+            format=PromptFormat.MARKDOWN,
+            stack=["TypeScript", "Next.js"],
+        )
+        compiled = compiler.compile(req)
+
+        assert "# Role" in compiled.prompt_text
+        assert "## Task" in compiled.prompt_text
+        assert "## Context" in compiled.prompt_text
+        assert "## Technology Stack" in compiled.prompt_text
+        assert "<role>" not in compiled.prompt_text
+        assert compiled.estimated_tokens > 50
 
     def test_feature_mode(self, compiler):
         req = PromptRequest(

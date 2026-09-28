@@ -4,13 +4,22 @@ from __future__ import annotations
 
 from typing import Any
 from promptcat.cleaner import TextCleaner
-from promptcat.models import CleanedText, CompiledPrompt, DetectedRule, PromptMode, PromptRequest
+from promptcat.history import save_history
+from promptcat.models import (
+    CleanedText,
+    CompiledPrompt,
+    DetectedRule,
+    PromptFormat,
+    PromptMode,
+    PromptRequest,
+)
 from promptcat.rules import RuleRegistry
 from promptcat.templates import MODE_DEFAULTS, render_template
+from promptcat.tokens import estimate_tokens
 
 
 class PromptCompiler:
-    """Orchestrates text cleaning, domain analysis, and template compilation."""
+    """Orchestrates text cleaning, domain analysis, token estimation, and template compilation."""
 
     def __init__(
         self,
@@ -21,19 +30,37 @@ class PromptCompiler:
         self.registry = registry if registry is not None else RuleRegistry()
 
     def compile(self, request: PromptRequest) -> CompiledPrompt:
-        """Compile a PromptRequest into a deterministic CompiledPrompt."""
+        """Compile a PromptRequest into a deterministic CompiledPrompt with token stats and history."""
         # 1. Clean input text
         cleaned: CleanedText = self.cleaner.clean(request.text)
 
         # Handle pure Grammar mode
         if request.mode == PromptMode.GRAMMAR:
+            tokens, chars, words = estimate_tokens(cleaned.cleaned)
+            hist_id = None
+            if not request.options.get("no_history", False):
+                hist_id = save_history(
+                    mode=request.mode.value,
+                    format_type=request.format.value,
+                    raw_input=request.text,
+                    cleaned_text=cleaned.cleaned,
+                    prompt_text=cleaned.cleaned,
+                    tokens=tokens,
+                    stack=[],
+                )
+
             return CompiledPrompt(
                 raw_input=request.text,
                 cleaned_text=cleaned.cleaned,
                 mode=PromptMode.GRAMMAR,
+                format=request.format,
                 detected_domains=[],
                 stack=[],
                 prompt_text=cleaned.cleaned,
+                estimated_tokens=tokens,
+                char_count=chars,
+                word_count=words,
+                history_id=hist_id,
                 metadata={
                     "corrections": cleaned.corrections,
                     "corrections_count": len(cleaned.corrections),
@@ -121,7 +148,7 @@ class PromptCompiler:
         # 11. Expected Output
         output_text = mode_conf.get("default_output", "")
 
-        # 12. Render XML template
+        # 12. Render XML or Markdown template
         prompt_text = render_template(
             role=role,
             task=task,
@@ -130,7 +157,24 @@ class PromptCompiler:
             constraints=constraints_formatted,
             requirements=requirements_formatted,
             output=output_text,
+            format_type=request.format,
         )
+
+        # 13. Estimate tokens
+        tokens, chars, words = estimate_tokens(prompt_text)
+
+        # 14. Save to local history
+        hist_id = None
+        if not request.options.get("no_history", False):
+            hist_id = save_history(
+                mode=request.mode.value,
+                format_type=request.format.value,
+                raw_input=request.text,
+                cleaned_text=cleaned.cleaned,
+                prompt_text=prompt_text,
+                tokens=tokens,
+                stack=combined_stack,
+            )
 
         metadata: dict[str, Any] = {
             "corrections": cleaned.corrections,
@@ -138,15 +182,23 @@ class PromptCompiler:
             "detected_domains": detected_domains,
             "detected_rules_count": len(detected_rules),
             "stack": combined_stack,
+            "tokens": tokens,
+            "chars": chars,
+            "words": words,
         }
 
         return CompiledPrompt(
             raw_input=request.text,
             cleaned_text=cleaned.cleaned,
             mode=request.mode,
+            format=request.format,
             detected_domains=detected_domains,
             stack=combined_stack,
             prompt_text=prompt_text,
+            estimated_tokens=tokens,
+            char_count=chars,
+            word_count=words,
+            history_id=hist_id,
             metadata=metadata,
         )
 
@@ -154,6 +206,7 @@ class PromptCompiler:
 def compile_prompt(
     text: str,
     mode: PromptMode = PromptMode.IMPROVE,
+    format_type: PromptFormat = PromptFormat.XML,
     stack: list[str] | None = None,
     constraints: list[str] | None = None,
     options: dict[str, Any] | None = None,
@@ -162,6 +215,7 @@ def compile_prompt(
     req = PromptRequest(
         text=text,
         mode=mode,
+        format=format_type,
         stack=stack if stack is not None else [],
         constraints=constraints if constraints is not None else [],
         options=options if options is not None else {},

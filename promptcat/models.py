@@ -26,6 +26,22 @@ class PromptMode(str, Enum):
         raise ValueError(f"Unknown prompt mode: '{value}'. Valid modes: {[m.value for m in cls]}")
 
 
+class PromptFormat(str, Enum):
+    """Template output format (XML or Markdown)."""
+
+    XML = "xml"
+    MARKDOWN = "markdown"
+
+    @classmethod
+    def from_str(cls, value: str) -> PromptFormat:
+        """Parse string to PromptFormat case-insensitively."""
+        normalized = value.strip().lower()
+        for fmt in cls:
+            if fmt.value == normalized:
+                return fmt
+        raise ValueError(f"Unknown prompt format: '{value}'. Valid formats: {[f.value for f in cls]}")
+
+
 @dataclass
 class DetectedRule:
     """Represents a domain rule matched against user text."""
@@ -50,6 +66,7 @@ class PromptRequest:
 
     text: str
     mode: PromptMode = PromptMode.IMPROVE
+    format: PromptFormat = PromptFormat.XML
     stack: list[str] = field(default_factory=list)
     options: dict[str, Any] = field(default_factory=dict)
     role: str | None = None
@@ -65,7 +82,12 @@ class CompiledPrompt:
     raw_input: str
     cleaned_text: str
     mode: PromptMode
+    format: PromptFormat = PromptFormat.XML
     detected_domains: list[str] = field(default_factory=list)
     stack: list[str] = field(default_factory=list)
     prompt_text: str = ""
+    estimated_tokens: int = 0
+    char_count: int = 0
+    word_count: int = 0
+    history_id: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)

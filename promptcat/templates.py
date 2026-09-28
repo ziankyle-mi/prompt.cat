@@ -1,12 +1,12 @@
-"""XML-style prompt templates for promptcat modes."""
+"""XML and Markdown prompt templates for promptcat modes."""
 
 from __future__ import annotations
 
 from typing import Any
-from promptcat.models import PromptMode
+from promptcat.models import PromptFormat, PromptMode
 
-# Base XML prompt template format
-BASE_TEMPLATE = """<role>
+# Base XML prompt template format (preferred for Claude / Anthropic)
+BASE_TEMPLATE_XML = """<role>
 {role}
 </role>
 
@@ -33,6 +33,28 @@ BASE_TEMPLATE = """<role>
 <output>
 {output}
 </output>"""
+
+# Base Markdown prompt template format (preferred for ChatGPT, Cursor, Markdown files)
+BASE_TEMPLATE_MARKDOWN = """# Role
+{role}
+
+## Task
+{task}
+
+## Context
+{context}
+
+## Technology Stack
+{technology}
+
+## Constraints
+{constraints}
+
+## Requirements
+{requirements}
+
+## Expected Output
+{output}"""
 
 
 # Default mode configuration specifications
@@ -138,9 +160,11 @@ def render_template(
     constraints: str,
     requirements: str,
     output: str,
+    format_type: PromptFormat = PromptFormat.XML,
 ) -> str:
-    """Format prompt into standard XML-sectioned structure."""
-    return BASE_TEMPLATE.format(
+    """Format prompt into XML or Markdown structured layout."""
+    template = BASE_TEMPLATE_MARKDOWN if format_type == PromptFormat.MARKDOWN else BASE_TEMPLATE_XML
+    return template.format(
         role=role.strip(),
         task=task.strip(),
         context=context.strip(),
